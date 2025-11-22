@@ -1,26 +1,21 @@
-module LFSR_16bit (
-    input logic CLK,
-    input logic RESET_N,
-    output logic [15:0] rand_out,
-    output logic [3:0] rand_digit
+module lfsr_generator (
+    input  logic        clk,
+    input  logic        reset_n,
+    output logic [3:0]  rand_digit
 );
-
     logic [15:0] lfsr_reg;
 
-    logic feedback;
-    assign feedback = lfsr_reg[15] ^ lfsr_reg[13] ^ lfsr_reg[12] ^ lfsr_reg[10];
-
-    always_ff @(posedge CLK or negedge RESET_N) begin
-        if (!RESET_N) begin
-            lfsr_reg <= 16'hBEEF;
+    always_ff @(posedge clk or negedge reset_n) begin
+        if (!reset_n) begin
+            lfsr_reg <= 16'hACE1;
         end else begin
-            lfsr_reg <= {lfsr_reg[14:0], feedback};
+            // 線性回授移位
+            logic feedback;
+            feedback = lfsr_reg[0] ^ lfsr_reg[2] ^ lfsr_reg[3] ^ lfsr_reg[5];
+            lfsr_reg <= {feedback, lfsr_reg[15:1]};
         end
     end
 
-    assign rand_out = lfsr_reg;
-
-    //use the remainer as simulation of random output
-    assign rand_digit = lfsr_reg[3:0] % 4'd10;
+    assign rand_digit = lfsr_reg[3:0] % 10; 
 
 endmodule
