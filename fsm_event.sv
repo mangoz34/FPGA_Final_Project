@@ -18,6 +18,7 @@ module fsm_event (
     output logic game_over
 );
     
+    // ------------------- 1. FSM 狀態定義 --------------------
     typedef enum logic [3:0] {
         S_IDLE = 4'h0, S_INPUT_D3 = 4'h1, S_INPUT_D2 = 4'h2, S_INPUT_D1 = 4'h3, S_INPUT_D0 = 4'h4,
         S_GUESS_D3 = 4'h5, S_GUESS_D2 = 4'h6, S_GUESS_D1 = 4'h7, S_GUESS_D0 = 4'h8,
@@ -26,22 +27,21 @@ module fsm_event (
 
     logic [3:0] current_state, next_state; 
     
+    // ------------------- 2. 內部暫存器 --------------------
     logic [3:0] Secret_reg [0:3];
     logic [3:0] Guess_reg  [0:3];
     logic [2:0] turn_count_reg; 
     
-    // --- 輔助訊號 (always_comb 輸出) ---
+    // ------------------- 3. 數據寫入與控制信號 --------------------
     logic is_turn_increment;
     logic is_duplicate;
     logic [1:0] input_idx_reg;
 
     // ----------------------------------------------------
-    // 1. 狀態暫存器 (Current State) - 僅驅動 current_state
+    // I. 狀態暫存器 (Current State) - 同步重置
     // ----------------------------------------------------
-    always_ff @(posedge clk or negedge RESET_N) begin
-        if (!RESET_N) begin // 非同步重置
-            current_state <= S_IDLE;
-        end else if (P3_pulse) begin // P3 同步重置
+    always_ff @(posedge clk) begin
+        if (P3_pulse) begin // P3 是同步重置
             current_state <= S_IDLE;
         end else begin
             current_state <= next_state;
@@ -49,18 +49,12 @@ module fsm_event (
     end
     
     // ----------------------------------------------------
-    // 2. 數據暫存器 (Data Registers) - 驅動 Secret_reg, Guess_reg, turn_count_reg
+    // II. 數據暫存器 (Data Registers) - 同步重置
     // ----------------------------------------------------
-    always_ff @(posedge clk or negedge RESET_N) begin
-        if (!RESET_N) begin // 非同步重置
+    always_ff @(posedge clk) begin 
+        if (P3_pulse) begin // P3 是同步重置
             for (int i=0; i<4; i++) begin
-                Secret_reg[i] <= 4'hA; 
-                Guess_reg[i] <= 4'hA;
-            end 
-            turn_count_reg <= 0;
-        end else if (P3_pulse) begin // P3 同步重置
-            for (int i=0; i<4; i++) begin
-                Secret_reg[i] <= 4'hA; 
+                Secret_reg[i] <= 4'hA; // 4'hA = '_' 符號
                 Guess_reg[i] <= 4'hA;
             end 
             turn_count_reg <= 0;
@@ -70,7 +64,7 @@ module fsm_event (
                 turn_count_reg <= turn_count_reg + 1;
             end
         
-            // --- P0 數字寫入 ---
+            // --- P0 數字寫入 (數據寫入邏輯) ---
             unique case (current_state)
                 S_INPUT_D3: if (next_state == S_INPUT_D2) Secret_reg[3] <= D_candidate;
                 S_INPUT_D2: if (next_state == S_INPUT_D1) Secret_reg[2] <= D_candidate;
@@ -91,81 +85,4 @@ module fsm_event (
                     S_INPUT_D0: Secret_reg[1] <= 4'hA;
                     S_GUESS_D2: Guess_reg[3] <= 4'hA;
                     S_GUESS_D1: Guess_reg[2] <= 4'hA;
-                    S_GUESS_D0: Guess_reg[1] <= 4'hA;
-                endcase
-            end
-        end
-    end
-    
-    // ----------------------------------------------------
-    // 3. 組合邏輯 (Next State & Outputs) - always_comb
-    // ----------------------------------------------------
-    always_comb begin
-        next_state = current_state; 
-        is_duplicate = 1'b0;
-        is_turn_increment = 1'b0;
-        input_idx_reg = 2'd0;
-
-        // --- 檢查重複邏輯 ---
-        unique case (current_state)
-            S_INPUT_D2: is_duplicate = (D_candidate == Secret_reg[3]);
-            S_INPUT_D1: is_duplicate = (D_candidate == Secret_reg[3]) || (D_candidate == Secret_reg[2]);
-            S_INPUT_D0: is_duplicate = (D_candidate == Secret_reg[3]) || (D_candidate == Secret_reg[2]) || (D_candidate == Secret_reg[1]);
-            
-            S_GUESS_D2: is_duplicate = (D_candidate == Guess_reg[3]);
-            S_GUESS_D1: is_duplicate = (D_candidate == Guess_reg[3]) || (D_candidate == Guess_reg[2]);
-            S_GUESS_D0: is_duplicate = (D_candidate == Guess_reg[3]) || (D_candidate == Guess_reg[2]) || (D_candidate == Guess_reg[1]);
-        endcase
-        
-        // --- 狀態轉換 ---
-        unique case (current_state)
-            S_IDLE:         if (P0_pulse) next_state = S_INPUT_D3;
-
-            S_INPUT_D3:     if (P0_pulse) next_state = S_INPUT_D2; 
-            S_INPUT_D2:     if (P0_pulse && !is_duplicate) next_state = S_INPUT_D1; else if (P1_pulse) next_state = S_INPUT_D3;
-            S_INPUT_D1:     if (P0_pulse && !is_duplicate) next_state = S_INPUT_D0; else if (P1_pulse) next_state = S_INPUT_D2;
-            S_INPUT_D0:     if (P0_pulse && !is_duplicate) next_state = S_GUESS_D3; else if (P1_pulse) next_state = S_INPUT_D1;
-
-            S_GUESS_D3:     if (P0_pulse && sw_enable) next_state = S_GUESS_D2; 
-            S_GUESS_D2:     if (P0_pulse && sw_enable && !is_duplicate) next_state = S_GUESS_D1; else if (P1_pulse) next_state = S_GUESS_D3;
-            S_GUESS_D1:     if (P0_pulse && sw_enable && !is_duplicate) next_state = S_GUESS_D0; else if (P1_pulse) next_state = S_GUESS_D2;
-            S_GUESS_D0:     if (P0_pulse && sw_enable && !is_duplicate) next_state = S_CALCULATE; else if (P1_pulse) next_state = S_GUESS_D1;
-
-            S_CALCULATE:    next_state = S_SHOW_RESULT; 
-            
-            S_SHOW_RESULT: begin
-                if (Count_A_in == 4 || turn_count_reg >= 5) next_state = S_GAME_OVER; 
-                else if (P0_pulse) begin
-                    next_state = S_GUESS_D3; 
-                    is_turn_increment = 1'b1; 
-                end
-            end
-            
-            default: next_state = current_state; 
-        endcase
-        
-        // --- 輸入索引計算 ---
-        unique case (current_state)
-            S_INPUT_D3, S_GUESS_D3: input_idx_reg = 2'd3;
-            S_INPUT_D2, S_GUESS_D2: input_idx_reg = 2'd2;
-            S_INPUT_D1, S_GUESS_D1: input_idx_reg = 2'd1;
-            S_INPUT_D0, S_GUESS_D0: input_idx_reg = 2'd0;
-            default: input_idx_reg = 2'd0; 
-        endcase
-    end
-    
-    // ----------------------------------------------------
-    // 4. 輸出連接 (連接暫存器到端口)
-    // ----------------------------------------------------
-    assign Secret[3] = Secret_reg[3]; assign Secret[2] = Secret_reg[2]; assign Secret[1] = Secret_reg[1]; assign Secret[0] = Secret_reg[0];
-    assign Guess[3] = Guess_reg[3]; assign Guess[2] = Guess_reg[2]; assign Guess[1] = Guess_reg[1]; assign Guess[0] = Guess_reg[0];
-    assign turn_count = turn_count_reg;
-    assign current_input_index = input_idx_reg;
-
-    assign in_setup_phase = (current_state == S_INPUT_D3) || (current_state == S_INPUT_D2) || (current_state == S_INPUT_D1) || (current_state == S_INPUT_D0);
-    assign in_guess_phase = (current_state == S_GUESS_D3) || (current_state == S_GUESS_D2) || (current_state == S_GUESS_D1) || (current_state == S_GUESS_D0);
-    
-    assign output_result_phase = (current_state == S_SHOW_RESULT);
-    assign game_over = (current_state == S_GAME_OVER);
-
-endmodule
+                    S_GUESS_D0: Guess_reg[1] <= 4'hA
