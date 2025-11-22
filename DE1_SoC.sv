@@ -330,34 +330,57 @@ module game_top (
 
             // --- RESULT ---
             S_SHOW_RESULT: begin
+                // HEX 顯示剛剛猜的數字
                 disp_char[3] = guess[3];
                 disp_char[2] = guess[2];
                 disp_char[1] = guess[1];
                 disp_char[0] = guess[0];
                 
-                // LEDR A/B 顯示
-                // A 恆亮
-                case(result_A)
-                   1: LEDR[9] = 1;
-                   2: LEDR[9:8] = 2'b11;
-                   3: LEDR[9:7] = 3'b111;
-                   4: LEDR[9:6] = 4'b1111; 
-                endcase
-                // B 閃爍 (疊加在剩下的 LED 上? 規格是 LEDR9-6 逐位顯示)
-                // 規格: LEDR9-6 逐位 A/B 反饋. 
-                // 假設 A 從左邊(9)開始亮，B 接在 A 後面，且 B 閃爍
-                // 例如 1A2B: LEDR9(ON), LEDR8(Blink), LEDR7(Blink), LEDR6(OFF)
-                // 實作邏輯：
-                if (result_A >= 1) LEDR[9] = 1'b1;
-                if (result_A >= 2) LEDR[8] = 1'b1;
-                if (result_A >= 3) LEDR[7] = 1'b1;
-                if (result_A >= 4) LEDR[6] = 1'b1;
+                // LEDR 逐位回饋邏輯 (Positional Feedback)
+                // 規則：
+                // 1. 若該位數字 == Target 該位數字 -> A (恆亮)
+                // 2. 若該位數字 != Target 該位，但出現在 Target 其他位置 -> B (閃爍)
+                // 3. 否則 -> 滅
 
-                if (blink_on) begin
-                    if (result_B >= 1) LEDR[9 - result_A] = 1'b1;
-                    if (result_B >= 2) LEDR[9 - result_A - 1] = 1'b1;
-                    if (result_B >= 3) LEDR[9 - result_A - 2] = 1'b1;
-                    if (result_B >= 4) LEDR[9 - result_A - 3] = 1'b1;
+                // --- LEDR9 對應 HEX5 (Guess[3]) ---
+                if (guess[3] == target[3]) begin
+                    LEDR[9] = 1'b1; // A: 恆亮
+                end else begin
+                    // 檢查是否為 B (數字存在於其他位置)
+                    if (guess[3] == target[2] || guess[3] == target[1] || guess[3] == target[0])
+                        LEDR[9] = blink_on; // B: 閃爍
+                    else
+                        LEDR[9] = 1'b0;     // 錯: 滅
+                end
+
+                // --- LEDR8 對應 HEX4 (Guess[2]) ---
+                if (guess[2] == target[2]) begin
+                    LEDR[8] = 1'b1;
+                end else begin
+                    if (guess[2] == target[3] || guess[2] == target[1] || guess[2] == target[0])
+                        LEDR[8] = blink_on;
+                    else
+                        LEDR[8] = 1'b0;
+                end
+
+                // --- LEDR7 對應 HEX3 (Guess[1]) ---
+                if (guess[1] == target[1]) begin
+                    LEDR[7] = 1'b1;
+                end else begin
+                    if (guess[1] == target[3] || guess[1] == target[2] || guess[1] == target[0])
+                        LEDR[7] = blink_on;
+                    else
+                        LEDR[7] = 1'b0;
+                end
+
+                // --- LEDR6 對應 HEX2 (Guess[0]) ---
+                if (guess[0] == target[0]) begin
+                    LEDR[6] = 1'b1;
+                end else begin
+                    if (guess[0] == target[3] || guess[0] == target[2] || guess[0] == target[1])
+                        LEDR[6] = blink_on;
+                    else
+                        LEDR[6] = 1'b0;
                 end
             end
 
