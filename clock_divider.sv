@@ -1,45 +1,26 @@
-module debouncer (
-    input logic clk,
-    input logic reset_n,
-    input logic key_in,
-    output logic key_pulse
+module clock_divider (
+    input logic CLK_50MHZ,
+    input logic RESET_N,
+    output logic blink_en
 );
 
-    localparam DEBOUNCE_CNT = 1_000_000;
-    localparam CNT_WIDTH    = 20;
+    localparam CNT_WIDTH   = 25; 
+    localparam COUNTER_MAX = 25_000_000 - 1; 
 
-    logic [CNT_WIDTH-1:0] counter = 0;
-    logic key_meta = 1'b0;
-    logic key_stable = 1'b0;
-
-    always_ff @(posedge clk) begin
-        key_meta <= key_in;
-    end
-
-    always_ff @(posedge clk or negedge reset_n) begin
-        if (!reset_n) begin
+    logic [CNT_WIDTH-1:0] counter = 0; 
+    
+    always_ff @(posedge CLK_50MHZ or negedge RESET_N) begin
+        if (!RESET_N) begin
             counter <= 0;
-            key_stable <= 1'b0;
+            blink_en <= 1'b0;
         end else begin
-            if (key_meta != key_stable) begin
-                if (counter == DEBOUNCE_CNT - 1) begin
-                    key_stable <= key_meta;
-                    counter <= 0;
-                end else begin
-                    counter <= counter + 1;
-                end
-            end else begin
+            if (counter == COUNTER_MAX) begin
                 counter <= 0;
+                blink_en <= ~blink_en;
+            end else begin
+                counter <= counter + 1;
             end
         end
     end
-
-    logic key_stable_dly = 1'b0;
-
-    always_ff @(posedge clk) begin
-        key_stable_dly <= key_stable;
-    end
-
-    assign key_pulse = key_stable & (~key_stable_dly);
 
 endmodule
