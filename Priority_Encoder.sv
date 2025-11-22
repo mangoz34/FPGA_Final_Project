@@ -1,24 +1,27 @@
-module Priority_Encoder (
-    input logic [9:0] SW_in,
-    output logic [3:0] D_manual,
-    output logic sw_enable
+module priority_encoder (
+    input  logic [9:0] sw,
+    output logic [3:0] hex_val,
+    output logic valid
 );
 
     always_comb begin
-        if      (SW_in[9])  D_manual = 4'd9;
-        else if (SW_in[8])  D_manual = 4'd8;
-        else if (SW_in[7])  D_manual = 4'd7;
-        else if (SW_in[6])  D_manual = 4'd6;
-        else if (SW_in[5])  D_manual = 4'd5;
-        else if (SW_in[4])  D_manual = 4'd4;
-        else if (SW_in[3])  D_manual = 4'd3;
-        else if (SW_in[2])  D_manual = 4'd2;
-        else if (SW_in[1])  D_manual = 4'd1;
-        else if (SW_in[0])  D_manual = 4'd0;
-        else                D_manual = 4'd0; // 如果所有 SW 都關閉，輸出 0
-    end
+        valid = 1'b1;
+        hex_val = 4'd0;
 
-    // check if sw is valid input(enable)
-    assign sw_enable = |SW_in; // Reduce OR 運算
+        if      (sw[9]) hex_val = 4'd9;
+        else if (sw[8]) hex_val = 4'd8;
+        else if (sw[7]) hex_val = 4'd7;
+        else if (sw[6]) hex_val = 4'd6;
+        else if (sw[5]) hex_val = 4'd5;
+        else if (sw[4]) hex_val = 4'd4;
+        else if (sw[3]) hex_val = 4'd3;
+        else if (sw[2]) hex_val = 4'd2;
+        else if (sw[1]) hex_val = 4'd1;
+        else if (sw[0]) hex_val = 4'd0;
+        else begin
+            valid = 1'b0;
+            hex_val = 4'd0;
+        end
+    end
 
 endmodule
