@@ -12,10 +12,9 @@ module display_ctrl (
     output logic [6:0]  HEX5, HEX4, HEX3, HEX2,
     output logic [9:0]  LEDR
 );
-    // 內部變數
+    
     logic [3:0] char_val [3:0];
     
-    // 特殊字元常數
     localparam C_L = 4'hD;
     localparam C_O = 4'h0;
     localparam C_S = 4'h5;
@@ -26,7 +25,7 @@ module display_ctrl (
     localparam C_BLK = 4'hF;
 
     always_comb begin
-        // 1. 預設值
+        //Default Display
         char_val[3] = C_BLK; char_val[2] = C_BLK; 
         char_val[1] = C_BLK; char_val[0] = C_BLK;
         LEDR = 10'd0;
@@ -108,7 +107,6 @@ module display_ctrl (
                 char_val[3] = guess[3]; char_val[2] = guess[2];
                 char_val[1] = guess[1]; char_val[0] = guess[0];
 
-                // LEDR9-6: A/B Positional Feedback
                 if (guess[3] == target[3]) LEDR[9] = 1'b1;
                 else if (guess[3] == target[2] || guess[3] == target[1] || guess[3] == target[0]) LEDR[9] = blink_on;
                 
